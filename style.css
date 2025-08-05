@@ -496,7 +496,7 @@
     .style-36 {
         box-sizing: border-box;
         background: rgb(242, 242, 242) none repeat scroll 0% 0% / auto padding-box border-box;
-        position: fixed;
+        position: relative;
         bottom: 0;
         left: 0;
         width: 100%;
@@ -1606,3 +1606,16 @@
         box-sizing: border-box;
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
     }
+
+    .style-999 {
+    box-sizing: border-box;
+    background: #fff;
+    position: relative;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+    z-index: 999;
+}
