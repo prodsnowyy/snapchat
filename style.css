@@ -496,7 +496,7 @@
     .style-36 {
         box-sizing: border-box;
         background: rgb(242, 242, 242) none repeat scroll 0% 0% / auto padding-box border-box;
-        position: relative;
+        position: static;
         bottom: 0;
         left: 0;
         width: 100%;
