@@ -125,22 +125,20 @@
     }
 
     .style-11 {
+        display: block;
         box-sizing: border-box;
         min-width: 0px;
+        width: max-content;
         border-left: 0px none rgba(0, 0, 0, 0.8);
         border-radius: 0px;
         border-right: 0px none rgba(0, 0, 0, 0.8);
-        margin-left: 37px;
-        margin-right: 37px;
-        margin-top: 0px;
-        width: unset;
         background: rgb(255, 255, 255) none repeat scroll 0% 0% / auto padding-box border-box;
         border: 1px solid rgb(235, 235, 235);
         box-shadow: rgba(0, 0, 0, 0.04) 0px 4px 8px 0px;
         padding: 24px;
         padding-left: 24px;
         padding-right: 24px;
-        margin: 0px 37px;
+        margin: 0 auto;
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
         max-width: 356px;
     }
@@ -498,11 +496,14 @@
     .style-36 {
         box-sizing: border-box;
         background: rgb(242, 242, 242) none repeat scroll 0% 0% / auto padding-box border-box;
-        position: relative;
-        top: 10px;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
         margin: 0px;
         padding: 0px;
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        z-index: 999;
     }
 
     .style-37 {
@@ -1505,7 +1506,7 @@
 
     .style-139 {
         width: 100%;
-        height: 12vh;
+        height: 100%;
         padding: 0px;
         max-width: none;
         margin: auto;
